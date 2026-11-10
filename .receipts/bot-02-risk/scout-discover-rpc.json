@@ -1,0 +1,50 @@
+{
+  "task_id": "scout-discover-rpc",
+  "bot": "bot-02-risk",
+  "branch": "cursor/scout-discover-rpc-96a0",
+  "approved_by": "human:owner",
+  "commands": [
+    {
+      "cmd": "uv run ruff check . && uv run ruff format --check . && uv run mypy src/ && ./scripts/check.sh && uv run pytest -q --tb=line",
+      "exit_code": 0,
+      "output_tail": "ruff check passed; 923 files already formatted; mypy 238 source files clean; check.sh ok 35 skills 10 agents; pytest exit 0 (two skipped)"
+    }
+  ],
+  "claims": [
+    {
+      "claim": "ruff, mypy --strict, scripts/check.sh, and the full offline pytest suite exit 0 on this branch.",
+      "evidence_command_index": 0
+    }
+  ],
+  "unverified": [
+    "G-1 cannot pass for a single seat: the change touches paths owned by bot-02-risk, bot-05-rug, bot-01-scout, and bot-00-chief. The cloud branch prefix is cursor/, not bot-0N-.",
+    "The requesting owner has not reviewed this diff. approved_by names that owner role, not a completed review.",
+    "A public-mainnet sanity check of scout discover --max-leads 1 returned one lead. Holder concentration on that run was blind after public RPC 429s. Alchemy bearer auth was not re-checked in this session.",
+    "Replay hash pins were not diffed by hand; they are covered only by the offline pytest suite, which includes the replay tests."
+  ],
+  "files_changed": [
+    ".env.example",
+    "README.md",
+    "docs/TOOL_CATALOG.md",
+    "docs/runbooks/setup.md",
+    "skills/discovery-tools/SKILL.md",
+    "skills/rpc-hygiene/SKILL.md",
+    "src/pumpgrok/cli/__init__.py",
+    "src/pumpgrok/cli/dispatch.py",
+    "src/pumpgrok/cli/parsing.py",
+    "src/pumpgrok/cli/verbs_scout.py",
+    "src/pumpgrok/scout/__init__.py",
+    "src/pumpgrok/scout/decode.py",
+    "src/pumpgrok/scout/discover.py",
+    "src/pumpgrok/scout/screen.py",
+    "src/pumpgrok/tools/onchain/holders.py",
+    "src/pumpgrok/tools/onchain/rpc.py",
+    "tests/scout/test_discover.py",
+    "tests/test_tools_cli.py",
+    "tests/tools/onchain/test_holder_exclude.py",
+    "tests/tools/onchain/test_rpc.py",
+    "tests/tools/test_verb_coverage.py"
+  ],
+  "contract_changes": [],
+  "rollback_plan": "Revert this pull request's merge commit. scout discover returns to exit 5, the RPC client sends x-api-key again, and holder_snapshot drops the exclude argument. No ledger or live-trading state changes. Recovery is one git revert."
+}

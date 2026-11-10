@@ -4,8 +4,9 @@ Registry level: the five exec tools resolve through ``build_registry`` find
 and run against the paper adapter (scripted curves, ``p_drop=0.0`` for
 deterministic fills). CLI level: paper buy/sell (simulate then place),
 state halt --clear/autonomy/resume, killswitch clear, ticket next/create/list,
-and verify run end to end with exit 0 and JSON. The remaining exit-5 list is
-pinned to the 04-09 handoff exactly.
+and verify run end to end with exit 0 and JSON. ``scout discover`` left
+this list when the on-chain verb landed. The remaining exit-5 verbs stay
+pinned.
 """
 
 from __future__ import annotations
@@ -42,7 +43,6 @@ T0 = 766_428_571_428_571
 SNIPER = "bot-04-sniper"
 
 EXIT_5_HANDOFF = [
-    ["scout", "discover"],
     ["scout", "pipeline", "--candidates"],
     ["risk", "audit"],
     ["chief", "pickup"],
@@ -463,7 +463,7 @@ class TestServedVerbCoverage:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.chdir(tmp_path)
-        assert len(EXIT_5_HANDOFF) == 9
+        assert len(EXIT_5_HANDOFF) == 8
         for argv in EXIT_5_HANDOFF:
             code, out, err = _run(argv)
             assert code == 5, argv

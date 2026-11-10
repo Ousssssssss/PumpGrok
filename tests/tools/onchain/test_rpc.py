@@ -7,6 +7,7 @@ elapsed time.
 
 from __future__ import annotations
 
+import json
 import random
 import sys
 import types
@@ -150,20 +151,40 @@ async def test_api_key_travels_in_header_only() -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen["url"] = str(request.url)
-        seen["header"] = request.headers.get("x-api-key", "")
+        seen["header"] = request.headers.get("authorization", "")
         return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": "ok"})
 
     rpc = _rpc(handler, api_key=SecretStr("s3cret"))
     assert await rpc.call("getFoo", []) == "ok"
-    assert seen["header"] == "s3cret"
+    assert seen["header"] == "Bearer s3cret"
     assert "s3cret" not in seen["url"]
+
+
+async def test_batch_aligns_ids_and_drops_item_errors() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert isinstance(body, list)
+        rows = []
+        for item in body:
+            if item["id"] == 1:
+                rows.append({"jsonrpc": "2.0", "id": 1, "error": {"code": -32000}})
+            else:
+                rows.append({"jsonrpc": "2.0", "id": item["id"], "result": item["params"][0]})
+        rows.reverse()
+        return httpx.Response(200, json=rows)
+
+    rpc = _rpc(handler)
+    out = await rpc.call_batch(
+        [("getTransaction", ["a"]), ("getTransaction", ["b"]), ("getTransaction", ["c"])]
+    )
+    assert out == ["a", None, "c"]
 
 
 async def test_no_key_sends_no_auth_header() -> None:
     seen: dict[str, bool] = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        seen["has_header"] = "x-api-key" in request.headers
+        seen["has_header"] = "authorization" in request.headers
         return httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": "ok"})
 
     rpc = _rpc(handler)

@@ -94,7 +94,12 @@ def _add_scout(verbs: _VerbsAction, mode_option: _Parser) -> None:
     scout = verbs.add_parser("scout", parents=[mode_option], help="discovery verbs")
     scout_cmd = scout.add_subparsers(dest="cmd", required=True, metavar="SCOUT")
     scout_discover = scout_cmd.add_parser("discover", help="discover new launches")
-    scout_discover.add_argument("--max-leads", type=int, default=5, help="max leads this run")
+    scout_discover.add_argument(
+        "--max-leads",
+        type=int,
+        default=5,
+        help="max new mints to screen this run (1-25)",
+    )
     scout_pipeline = scout_cmd.add_parser("pipeline", help="ingest pipeline candidates")
     scout_pipeline.add_argument("--candidates", action="store_true", help="read candidates")
     scout_pipeline.add_argument("--limit", type=int, default=5, help="max candidates this run")

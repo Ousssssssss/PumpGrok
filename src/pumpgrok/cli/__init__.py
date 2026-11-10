@@ -7,10 +7,12 @@ over catalog tools through `build_operator_registry` + `registry.find` (TOOL-011
 `paper buy|sell` (simulate then place against the paper engine; fail closed on
 unknown `--approval-id`, exit 1, R63), `state` (status, halt, halt --clear,
 autonomy, resume), `killswitch` (set, flatten, status, clear), `ticket`
-(next, create, list), `verify`, plus the find-only orchestration verbs
-(`scout`, `risk`, `chief`, `rug`, `journal`, `report`, `audit`) and the
-human-only `live confirm`, which print the JSON envelope and exit 5 (B5
-partial until Phase 4). Replay maintenance verbs exit 5. `paper` and `state`
+(next, create, list), `verify`, and `scout discover`. `scout discover` polls the
+pump.fun program over Solana JSON-RPC and prints lead JSON. It is read-only:
+it does not allocate tickets or append the ledger. `scout pipeline`, `risk`,
+`chief`, `rug`, `journal`, `report`, `audit`, and the human-only `live confirm`
+print the JSON envelope and exit 5 (B5 partial until Phase 4). Replay
+maintenance verbs exit 5. `paper` and `state`
 halt/autonomy require `--seat` and refuse `sniper`/`exit`. Hidden
 `tools <id> --help` prints the tool JSON schema (B8).
 Exit codes: 0 ok; 1 config or usage; 2 ledger inconsistent; 3 live refused; 4 corrupt

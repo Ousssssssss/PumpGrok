@@ -21,7 +21,7 @@ The desk starts in **research** mode. **paper** is the simulated-fill level: `pu
 
 - A host that can load `agents/`, `skills/`, and `rules/` (Grok Bot, Cursor, Claude Code, or Grok Build)
 - Python 3.12 via `uv` (`uv sync` installs the locked deps; `scripts/check.sh` is stdlib only)
-- Optional: a private Solana RPC URL via `PUMPGROK_RPC__ENDPOINTS` (reads default to `https://api.mainnet-beta.solana.com`)
+- Optional: a private Solana RPC URL via `PUMPGROK_RPC__ENDPOINTS` (reads default to `https://api.mainnet-beta.solana.com`). A paid-provider key is `PUMPGROK_RPC__API_KEY`, sent as `Authorization: Bearer`. Settings never read a `.env` file; export it first (`set -a; source .env; set +a`).
 
 A committed `uv.lock` pins every dependency. No API keys are required for the public endpoints the reads call.
 
@@ -47,6 +47,12 @@ uv run pumpgrok ticket next --help
 uv run pumpgrok tools market.holders_snapshot --help
 uv run pumpgrok paper buy --help
 uv run pumpgrok scout pipeline --candidates --help
+```
+
+`scout discover` polls the pump.fun program over the configured JSON-RPC endpoint, screens each new mint (authorities, holders excluding the bonding-curve account, deployer signature count), and prints JSON leads. It does not allocate tickets or send transactions. The public endpoint rate-limits this scan; point `PUMPGROK_RPC__ENDPOINTS` and `PUMPGROK_RPC__API_KEY` at a keyed provider when you want a full window. See `skills/discovery-tools`.
+
+```bash
+uv run pumpgrok scout discover --max-leads 5
 ```
 
 Working files for a desk live under `var/` (append-only ledger `var/ledger.sqlite`, operational dir `var/desk/`), not inside the instruction tree. Allocate and list tickets with `pumpgrok ticket next|create|list`, never loose files.

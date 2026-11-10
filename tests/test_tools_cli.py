@@ -654,7 +654,6 @@ class TestOperatorVerbs:
     @pytest.mark.parametrize(
         "argv",
         [
-            ["scout", "discover"],
             ["scout", "pipeline", "--candidates"],
             ["risk", "audit"],
             ["chief", "pickup"],
@@ -671,6 +670,38 @@ class TestOperatorVerbs:
         code, out, _ = self._run(tmp_path, monkeypatch, argv)
         assert code == 5
         assert json.loads(out)["status"] == "not-yet-implemented"
+
+    def test_scout_discover_prints_lead_json(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def fake(_settings: object, *, max_leads: int) -> dict[str, object]:
+            assert max_leads == 2
+            return {
+                "ok": True,
+                "verb": "scout discover",
+                "leads": [],
+                "tickets_created": 0,
+                "read_only": True,
+            }
+
+        monkeypatch.setattr("pumpgrok.cli.verbs_scout.discover_leads", fake)
+        code, out, err = self._run(tmp_path, monkeypatch, ["scout", "discover", "--max-leads", "2"])
+        assert code == 0
+        payload = json.loads(out)
+        assert payload["ok"] is True
+        assert payload["leads"] == []
+        assert payload["tickets_created"] == 0
+        assert "Traceback" not in err
+
+    def test_scout_discover_rejects_zero_max_leads(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        code, _out, err = self._run(
+            tmp_path, monkeypatch, ["scout", "discover", "--max-leads", "0"]
+        )
+        assert code == 1
+        assert "max-leads" in err
+        assert "Traceback" not in err
 
 
 def _run_cli(
@@ -739,7 +770,6 @@ class TestCliRegressionSweep:
             (["killswitch", "flatten", "--reason", "sweep"], 0),
             (["killswitch", "status"], 0),
             (["killswitch", "clear", "--by", "human:op", "--reason", "sweep"], 0),
-            (["scout", "discover"], 5),
             (["scout", "pipeline", "--candidates"], 5),
             (["risk", "audit"], 5),
             (["chief", "pickup"], 5),

@@ -750,7 +750,8 @@ are converted to lamports at the boundary (R28).
 | `pumpgrok run --mode paper [--once] [--replay <dataset>] [--record <dataset> --duration <s>]` | supervisor; every tool via registry (R40) |
 | `pumpgrok doctor` / `audit` / `verify [--fixture <dataset>]` | desk.doctor, desk.receipt_check, desk.ownership_resolve (R40) |
 | `pumpgrok report --daily` / `--weekly` | journal.render_report (daily 00:05Z, weekly Monday 00:15Z, R40) |
-| `pumpgrok scout discover` / `pipeline` | market.trades, market.liquidity, onchain.authorities, journal.append (`journal_note`, `note_kind: lead`) |
+| `pumpgrok scout discover` | Solana JSON-RPC `getSignaturesForAddress` + `getTransaction` on the pump.fun program; `onchain.authorities`, holder snapshot ex-curve, deployer signature window. Prints a `journal_note` payload (`note_kind: lead`) and does not append or allocate a ticket |
+| `pumpgrok scout pipeline` | not implemented (exit 5) |
 | `pumpgrok risk audit` | portfolio.ledger_read, portfolio.exposure, portfolio.pnl, risk.drawdown, risk.check_limits, risk.halt_status, desk.event_emit (`journal_note` `note_kind: verdict`, `escalation`) (R35) |
 | `pumpgrok chief pickup` | desk.brief, risk.halt_status, exec.positions, notify.alert |
 | `pumpgrok rug watch` | onchain.lp_status, onchain.authorities, onchain.top_holders, market.price, desk.event_emit (`escalation` `kind: rug_flag`) (R35) |

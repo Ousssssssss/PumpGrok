@@ -13,6 +13,7 @@ from pumpgrok.cli.errors import UsageError, _not_implemented, _say
 from pumpgrok.cli.events import events_verb
 from pumpgrok.cli.parsing import build_parser
 from pumpgrok.cli.verbs_ops import _doctor_verb, _live_verb, _report_verb, _verify_verb
+from pumpgrok.cli.verbs_scout import scout_discover_verb
 from pumpgrok.cli.verbs_state import _killswitch, _paper, _run, _state, _ticket_verb
 from pumpgrok.cli.wiring import _find_only, _tools_entry, _verb_label
 from pumpgrok.config.settings import (
@@ -55,6 +56,8 @@ _VERB_HANDLERS: dict[str, Callable[[argparse.Namespace, Settings], int]] = {
 
 
 def _route(args: argparse.Namespace, settings: Settings) -> int:
+    if args.verb == "scout" and getattr(args, "cmd", None) == "discover":
+        return scout_discover_verb(args, settings)
     find_route = _FIND_ONLY_ROUTES.get(args.verb)
     if find_route is not None:
         seat, capabilities = find_route

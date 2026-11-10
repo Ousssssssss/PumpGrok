@@ -38,11 +38,26 @@ UTC Timestamp: <ISO>
 ```
 3. Never recommend buy size or urgency, never clear risk, and never surface leads without a verifiable mint and source.
 
+## On-chain discover
+
+`pumpgrok scout discover --max-leads N` finds new pump.fun mints through the desk Solana JSON-RPC client. It does not call pump.fun REST or the PumpPortal websocket. Settings never read a `.env` file. Export the variables into the process, then run the verb:
+
+```
+set -a
+source .env
+set +a
+uv run pumpgrok scout discover --max-leads 5
+```
+
+`PUMPGROK_RPC__ENDPOINTS` is a keyless URL. `PUMPGROK_RPC__API_KEY` is sent as `Authorization: Bearer`, never placed in the URL. The public mainnet endpoint often returns 429 inside the signature window; a keyed provider is the intended path. The verb prints JSON leads, screens mint and freeze authority, top-10 holders excluding the bonding-curve token account, and a short deployer signature count. It does not allocate a ticket, append the ledger, sign, or send. The lead block uses `LEAD-ID: (not allocated)`. The scout cron allocates the id with `ticket next` and writes the file.
+
 ## Failure modes
 - Unverifiable mint or source: the lead is dropped, not surfaced with caveats.
 - Stale surface data: timestamp it; RISK treats undated leads as `BLIND`.
 - Flood of weak leads: prefer fewer, better-evidenced leads over volume.
+- RPC window exhausted or rate-limited: the JSON `limits` list and `skipped` counts say what was not scanned. Do not invent the missing mints.
 
 ## References
-- Tools: `pumpgrok scout pipeline --candidates` (vendored pipeline candidates)
+- Verb: `pumpgrok scout discover --max-leads 5` (Solana JSON-RPC only)
+- Tools: `pumpgrok scout pipeline --candidates` (still not implemented in this release)
 - Handoff: RISK via `risk-audit`; schema: LEAD block above
