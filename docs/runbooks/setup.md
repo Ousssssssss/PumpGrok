@@ -13,7 +13,15 @@ uv run pumpgrok run --mode paper --once --replay tests/fixtures/replay/smoke
 
 `pumpgrok doctor` reports every subsystem. `run --mode paper --once --replay` prints one engine decision (`skip` or `buy`) and appends one JournalNote. `check.sh` lints the instruction pack (skill frontmatter, constitution phrases, no network).
 
-Copy the example environment file to `.env` before the first run and fill in the keys it names. The `.env` file itself is gitignored and is never printed, committed, or pasted anywhere.
+Copy the example environment file to `.env` before the first run and fill in the keys it names. The `.env` file itself is gitignored and is never printed, committed, or pasted anywhere. Settings never read that file. Export it into the process before a command that needs the variables (`set -a; source .env; set +a`).
+
+On-chain discovery uses only the Solana JSON-RPC client. `PUMPGROK_RPC__ENDPOINTS` is a keyless URL and `PUMPGROK_RPC__API_KEY` is sent as `Authorization: Bearer`. After the variables are exported:
+
+```bash
+uv run pumpgrok scout discover --max-leads 5
+```
+
+The verb prints JSON leads and does not allocate tickets. The public mainnet endpoint often rate-limits the signature window; a keyed provider is the path that finishes a full scan.
 
 ## What setup creates
 

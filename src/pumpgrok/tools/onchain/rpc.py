@@ -3,9 +3,9 @@
 Tenacity ``AsyncRetrying`` drives retries with ``sleep=clock.sleep`` and a
 seeded wait, so replays reproduce every delay from the fixture alone (R27).
 Endpoints are keyless URLs only; a paid-provider key travels separately in
-``api_key`` and is sent as an ``x-api-key`` header. The header name is
-provisional pending provider confirmation (Open Q7); keyless public RPC is
-all Phase 2 tests use.
+``api_key`` and is sent as ``Authorization: Bearer <key>``. Alchemy rejects
+``x-api-key`` (``Must be authenticated``) and accepts this bearer header
+(Open Q7, confirmed). Keyless public RPC is what the offline tests use.
 
 Nothing raised or logged here carries an endpoint URL, a header value, or
 ``str(exc)`` from httpx: errors name the method and the endpoint count only
@@ -15,7 +15,7 @@ Nothing raised or logged here carries an endpoint URL, a header value, or
 from __future__ import annotations
 
 import random
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 import httpx
@@ -43,6 +43,33 @@ class _Failover(Exception):
 
 class _BadBody(Exception):
     """Internal: an endpoint returned malformed JSON; try the next one."""
+
+
+def _batch_index(raw: object, count: int) -> int | None:
+    if isinstance(raw, bool):
+        return None
+    if isinstance(raw, int) and 0 <= raw < count:
+        return raw
+    if isinstance(raw, str) and raw.isdecimal():
+        index = int(raw)
+        if 0 <= index < count:
+            return index
+    return None
+
+
+def _align_batch(data: object, count: int) -> list[Any]:
+    """Line batch results up with request ids. An item error stays None."""
+    if not isinstance(data, list):
+        raise RpcError("rpc error for method=batch")
+    slots: list[Any] = [None] * count
+    for item in data:
+        if not isinstance(item, dict) or "error" in item:
+            continue
+        index = _batch_index(item.get("id"), count)
+        if index is None:
+            continue
+        slots[index] = item.get("result")
+    return slots
 
 
 def _retriable_rpc_error(exc: BaseException) -> bool:
@@ -127,13 +154,13 @@ class RpcClient:
     def _headers(self) -> dict[str, str]:
         key = self._api_key.get_secret_value()
         if key:
-            return {"x-api-key": key}
+            return {"Authorization": f"Bearer {key}"}
         return {}
 
-    async def _post_once(self, endpoint: str, method: str, params: list[Any]) -> Any:
+    async def _post_body(self, endpoint: str, body: object, label: str) -> Any:
         resp = await self._client.post(
             endpoint,
-            json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+            json=body,
             headers=self._headers(),
             timeout=self._timeout_seconds,
         )
@@ -141,22 +168,23 @@ class RpcClient:
         try:
             data = resp.json()
         except ValueError as exc:
-            raise _BadBody(f"rpc bad body method={method}") from exc
+            raise _BadBody(f"rpc bad body method={label}") from exc
         if isinstance(data, dict) and "error" in data:
-            raise RpcError(f"rpc error for method={method}")
+            raise RpcError(f"rpc error for method={label}")
+        return data
+
+    async def _post_once(self, endpoint: str, method: str, params: list[Any]) -> Any:
+        data = await self._post_body(
+            endpoint,
+            {"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
+            method,
+        )
         if isinstance(data, dict):
             return data.get("result")
         return data
 
-    async def call(self, method: str, params: list[Any]) -> Any:
-        """POST ``method`` to each endpoint in order; first success wins.
-
-        Timeouts, HTTP 5xx and 429 retry per endpoint from the calling tool's
-        RetryPolicy (j4/j5/j8); 4xx and connection errors fail over immediately.
-        An RPC-level ``error`` fails over immediately; a malformed body fails
-        over and becomes :class:`DataStale` when every endpoint is malformed.
-        Failures raise :class:`RpcError` with no URL, header, or exception text.
-        """
+    async def _failover(self, label: str, post: Callable[[str], Awaitable[Any]]) -> Any:
+        """Run ``post`` against each endpoint. Retries and errors stay redacted."""
         bad_bodies = 0
         for endpoint in self._endpoints:
             try:
@@ -169,7 +197,7 @@ class RpcClient:
                 ):
                     with attempt:
                         try:
-                            return await self._post_once(endpoint, method, params)
+                            return await post(endpoint)
                         except RpcError as exc:
                             raise _Failover from exc
             except _Failover:
@@ -180,5 +208,39 @@ class RpcClient:
             except (httpx.HTTPError, RetryError):
                 continue
         if bad_bodies == len(self._endpoints):
-            raise DataStale(f"rpc bad body method={method} endpoints={len(self._endpoints)}")
-        raise RpcError(f"rpc failed method={method} endpoints={len(self._endpoints)}") from None
+            raise DataStale(f"rpc bad body method={label} endpoints={len(self._endpoints)}")
+        raise RpcError(f"rpc failed method={label} endpoints={len(self._endpoints)}") from None
+
+    async def call(self, method: str, params: list[Any]) -> Any:
+        """POST ``method`` to each endpoint in order; first success wins.
+
+        Timeouts, HTTP 5xx and 429 retry per endpoint from the calling tool's
+        RetryPolicy (j4/j5/j8); 4xx and connection errors fail over immediately.
+        An RPC-level ``error`` fails over immediately; a malformed body fails
+        over and becomes :class:`DataStale` when every endpoint is malformed.
+        Failures raise :class:`RpcError` with no URL, header, or exception text.
+        """
+
+        async def post(endpoint: str) -> Any:
+            return await self._post_once(endpoint, method, params)
+
+        return await self._failover(method, post)
+
+    async def call_batch(self, calls: Sequence[tuple[str, list[Any]]]) -> list[Any]:
+        """POST one JSON-RPC batch. Per-item errors become None; ids are aligned.
+
+        A failed HTTP call fails over like :meth:`call`. One bad item does not
+        drop the rest of the batch.
+        """
+        if not calls:
+            return []
+        body = [
+            {"jsonrpc": "2.0", "id": index, "method": method, "params": params}
+            for index, (method, params) in enumerate(calls)
+        ]
+
+        async def post(endpoint: str) -> Any:
+            return await self._post_body(endpoint, body, "batch")
+
+        data = await self._failover("batch", post)
+        return _align_batch(data, len(calls))
